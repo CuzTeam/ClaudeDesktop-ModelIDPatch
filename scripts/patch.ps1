@@ -1,3 +1,7 @@
+#Requires -RunAsAdministrator
+param(
+    [string]$ClaudeDesktopDir = ""
+)
 # patch-claude.ps1
 # Patch Claude Desktop to allow non-Anthropic model names in enterprise config
 # Step A: flip Electron fuse to disable asar integrity validation (in claude.exe)
@@ -9,13 +13,7 @@
 #
 # Must run as Administrator (needed for takeown + icacls on WindowsApps dir)
 
-#Requires -RunAsAdministrator
 $ErrorActionPreference = "Stop"
-
-# ── Parse --claude-desktop-dir argument ──────────────────────────────────────
-param(
-    [string]$ClaudeDesktopDir = ""
-)
 
 if ($ClaudeDesktopDir) {
     $appDir = $ClaudeDesktopDir.TrimEnd('\','/')
