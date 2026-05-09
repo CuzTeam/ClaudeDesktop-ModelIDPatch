@@ -5,9 +5,25 @@ APP="${1:-/Applications/Claude.app}"
 ASAR="$APP/Contents/Resources/app.asar"
 ASAR_BAK="$APP/Contents/Resources/app.asar.bak"
 
+REMOTE_URL="https://raw.githubusercontent.com/CuzTeam/ClaudeDesktop-ModelIDPatch/refs/heads/main/patch-definitions.json"
+
 [ -d "$APP"  ] || { echo "error: $APP not found" >&2; exit 1; }
 [ -f "$ASAR" ] || { echo "error: $ASAR not found" >&2; exit 1; }
 
+# --- detect version ----------------------------------------------------------
+CLAUDE_VERSION=$(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "unknown")
+echo "Detected Claude Desktop version: $CLAUDE_VERSION"
+
+# --- fetch remote patch definitions ------------------------------------------
+echo "Fetching patch definitions from remote..."
+PATCH_JSON=$(curl -fsSL --connect-timeout 10 "$REMOTE_URL" 2>/dev/null || echo "")
+if [ -n "$PATCH_JSON" ]; then
+  echo "  Remote fetch OK."
+else
+  echo "  Remote fetch failed, will use embedded definitions."
+fi
+
+# --- backup ------------------------------------------------------------------
 if [ -f "$ASAR_BAK" ]; then
   echo "backup exists: $ASAR_BAK (skipping)"
 else
@@ -16,10 +32,48 @@ else
 fi
 
 # --- patch asar in-place -----------------------------------------------------
-python3 - "$ASAR" << 'PYTHON'
-import sys, struct, json, hashlib, os, plistlib
+PATCH_JSON="$PATCH_JSON" CLAUDE_VERSION="$CLAUDE_VERSION" python3 - "$ASAR" << 'PYTHON'
+import sys, struct, json, hashlib, os, re, plistlib
 
 path = sys.argv[1]
+patch_json_str = os.environ.get('PATCH_JSON', '')
+claude_version = os.environ.get('CLAUDE_VERSION', 'unknown')
+
+# Embedded fallback definitions
+EMBEDDED = {
+    "1.6608.0": {
+        "original": b'function LbA(e){const A=e.toLowerCase();return Lxe.test(A)||Z$t.some(t=>A.includes(t))}',
+        "patched_prefix": b'function LbA(e){return!0}'
+    },
+    "1.6608.2": {
+        "original": b'function ObA(e){const A=e.toLowerCase();return Yxe.test(A)||t5t.some(t=>A.includes(t))}',
+        "patched_prefix": b'function ObA(e){return!0}'
+    }
+}
+FALLBACK_PATTERN = rb'function \w{2,4}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,4}\.test\(A\)\|\|\w{2,4}\.some\(t=>A\.includes\(t\)\)\}'
+
+OLD = None
+NEW = None
+
+# Try remote definition first
+if patch_json_str:
+    try:
+        defs = json.loads(patch_json_str)
+        ver_def = defs.get('definitions', {}).get(claude_version, {}).get('macos', {})
+        if ver_def:
+            OLD = ver_def['original'].encode()
+            prefix = ver_def['patched_prefix'].encode()
+            NEW = prefix + b' ' * (len(OLD) - len(prefix))
+            print("Using remote definition for version %s" % claude_version)
+    except Exception as e:
+        print("Remote JSON parse error: %s" % e)
+
+# Fall back to embedded
+if OLD is None and claude_version in EMBEDDED:
+    OLD = EMBEDDED[claude_version]['original']
+    prefix = EMBEDDED[claude_version]['patched_prefix']
+    NEW = prefix + b' ' * (len(OLD) - len(prefix))
+    print("Using embedded definition for version %s" % claude_version)
 
 with open(path, 'rb') as f:
     raw = bytearray(f.read())
@@ -34,13 +88,27 @@ js_size   = info['size']
 js_abs    = data_start + js_offset
 js_bytes  = raw[js_abs : js_abs + js_size]
 
-OLD = b'function LbA(e){const A=e.toLowerCase();return Lxe.test(A)||Z$t.some(t=>A.includes(t))}'
-NEW = b'function LbA(e){return!0}' + b' ' * (len(OLD) - len(b'function LbA(e){return!0}'))
-assert len(NEW) == len(OLD)
+# If no definition matched, try fallback regex
+if OLD is None:
+    print("No definition for version %s, trying fallback regex..." % claude_version)
+    m = re.search(FALLBACK_PATTERN, js_bytes)
+    if not m:
+        print("error: fallback regex did not match -- manual investigation required")
+        sys.exit(1)
+    OLD = m.group(0)
+    func_name = re.match(rb'function (\w+)', OLD).group(1)
+    prefix = b'function ' + func_name + b'(e){return!0}'
+    NEW = prefix + b' ' * (len(OLD) - len(prefix))
+    print("Auto-detected function: %s" % func_name.decode())
+
+assert len(NEW) == len(OLD), "Patch length mismatch: %d vs %d" % (len(NEW), len(OLD))
 
 count = js_bytes.count(OLD)
 if count == 0:
-    print("error: target not found -- already patched or version mismatch")
+    if b'return!0}' in js_bytes and b'/*patched*/' in js_bytes or b'return!0} ' in js_bytes:
+        print("Already patched, skipping.")
+        sys.exit(0)
+    print("error: target not found -- version mismatch or unknown change")
     sys.exit(1)
 if count > 1:
     print("error: %d matches, expected 1" % count)
@@ -49,7 +117,7 @@ if count > 1:
 idx = js_bytes.find(OLD)
 patch_offset = js_abs + idx
 raw[patch_offset : patch_offset + len(OLD)] = NEW
-print("patched LbA() at offset %d" % patch_offset)
+print("patched at offset %d" % patch_offset)
 
 patched_js = bytes(raw[js_abs : js_abs + js_size])
 BLOCK = info['integrity']['blockSize']
