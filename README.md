@@ -8,7 +8,7 @@ A patch allows the Claude client to accept more ModelIDs.
 ### MacOS
 ```bash
 curl -fsSL https://raw.githubusercontent.com/CuzTeam/ClaudeDesktop-ModelIDPatch/refs/heads/main/scripts/patch.sh | bash
-···
+```
 
 ### Windows Powershell
 ```ps1
