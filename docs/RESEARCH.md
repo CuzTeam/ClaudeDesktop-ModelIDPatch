@@ -1,7 +1,7 @@
 # Claude Desktop Patch — Research Notes
 
-版本：Claude Desktop 1.6608.0.0 (Windows)  
-分析日期：2026-05-08
+版本：Claude Desktop 1.6608.0.0 / 1.6608.2.0 (Windows)  
+分析日期：2026-05-08 / 2026-05-09
 
 ---
 
@@ -12,7 +12,8 @@
 3. [主进程模型名校验逻辑](#主进程模型名校验逻辑)
 4. [Electron asar 完整性校验](#electron-asar-完整性校验)
 5. [Patch 方案](#patch-方案)
-6. [已知限制](#已知限制)
+6. [版本差异对照](#版本差异对照)
+7. [已知限制](#已知限制)
 
 ---
 
@@ -265,6 +266,28 @@ function bLA(e){return true/*patched*/}
 ### 脚本
 
 见 `patch-claude.ps1`，需以管理员身份运行。
+
+---
+
+## 版本差异对照
+
+| 项目 | 1.6608.0 (Windows) | 1.6608.2 (Windows) |
+|------|--------------------|--------------------|
+| 安装目录 | `Claude_1.6608.0.0_x64__pzs8sxrjxfjjc` | `Claude_1.6608.2.0_x64__pzs8sxrjxfjjc` |
+| 校验函数名 | `bLA` | `ObA` |
+| 正则变量 | `bxe` | `Yxe` |
+| 关键词数组 | `ZWt` | `t5t` |
+| 完整目标字串 | `function bLA(e){const A=e.toLowerCase();return bxe.test(A)\|\|ZWt.some(t=>A.includes(t))}` | `function ObA(e){const A=e.toLowerCase();return Yxe.test(A)\|\|t5t.some(t=>A.includes(t))}` |
+| Fuse wire 布局 | 不变 | 不变（sentinel 搜索仍有效） |
+| app.asar 内部结构 | `.vite/build/index.js` | `.vite/build/index.js`（路径不变） |
+
+| 项目 | 1.6608.0 (macOS) | 1.6608.2 (macOS) |
+|------|------------------|------------------|
+| 校验函数名 | `LbA` | `ObA`（待验证） |
+| 正则变量 | `Lxe` | `Yxe`（待验证） |
+| 关键词数组 | `Z$t` | `t5t`（待验证） |
+
+> macOS 1.6608.2 的函数名基于 Windows 版本推测，实际可能不同（不同平台的 minification 可能独立）。脚本中的 fallback regex 可处理此情况。
 
 ---
 

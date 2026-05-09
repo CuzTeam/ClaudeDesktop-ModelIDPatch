@@ -5,7 +5,9 @@ param(
 # patch-claude.ps1
 # Patch Claude Desktop to allow non-Anthropic model names in enterprise config
 # Step A: flip Electron fuse to disable asar integrity validation (in claude.exe)
-# Step B: patch bLA() in app.asar to always return true (bypass model name check)
+# Step B: patch model validation function in app.asar to always return true
+#
+# Supports remote patch definitions — fetches latest targets from GitHub.
 #
 # Usage:
 #   .\patch-claude.ps1
@@ -15,6 +17,22 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$RemoteUrl = "https://raw.githubusercontent.com/CuzTeam/ClaudeDesktop-ModelIDPatch/refs/heads/main/patch-definitions.json"
+
+# ── Embedded fallback definitions ────────────────────────────────────────────
+$EmbeddedDefs = @{
+    "1.6608.0" = @{
+        original = 'function bLA(e){const A=e.toLowerCase();return bxe.test(A)||ZWt.some(t=>A.includes(t))}'
+        patched  = 'function bLA(e){return true/*patched*/}'
+    }
+    "1.6608.2" = @{
+        original = 'function ObA(e){const A=e.toLowerCase();return Yxe.test(A)||t5t.some(t=>A.includes(t))}'
+        patched  = 'function ObA(e){return true/*patched*/}'
+    }
+}
+$FallbackPattern = 'function \w{2,4}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,4}\.test\(A\)\|\|\w{2,4}\.some\(t=>A\.includes\(t\)\)\}'
+
+# ── Locate installation ──────────────────────────────────────────────────────
 if ($ClaudeDesktopDir) {
     $appDir = $ClaudeDesktopDir.TrimEnd('\','/')
     if (-not (Test-Path $appDir)) {
@@ -22,7 +40,6 @@ if ($ClaudeDesktopDir) {
     }
     Write-Host "Using specified directory: $appDir"
 } else {
-    # Auto-detect: find Claude_* under WindowsApps, pick the newest by name
     $windowsApps = "C:\Program Files\WindowsApps"
     $candidates = Get-ChildItem $windowsApps -Directory -Filter "Claude_*" -ErrorAction SilentlyContinue |
                   Where-Object { Test-Path (Join-Path $_.FullName "app\claude.exe") } |
@@ -38,16 +55,53 @@ if ($ClaudeDesktopDir) {
     Write-Host "Auto-detected: $appDir"
 }
 
+# ── Detect version ───────────────────────────────────────────────────────────
+$versionMatch = [regex]::Match($appDir, 'Claude_(\d+\.\d+\.\d+)')
+$claudeVersion = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "unknown" }
+Write-Host "Detected Claude Desktop version: $claudeVersion"
+
 $exePath    = Join-Path $appDir "claude.exe"
 $asarPath   = Join-Path $appDir "resources\app.asar"
 $tmpDir     = Join-Path $env:TEMP "claude_patch"
 $jsPath     = Join-Path $tmpDir ".vite\build\index.js"
-# Backups go to Desktop to avoid permission issues
 $backupExe  = Join-Path $env:USERPROFILE "Desktop\claude.exe.bak"
 $backupAsar = Join-Path $env:USERPROFILE "Desktop\app.asar.bak"
 
 if (-not (Test-Path $exePath))  { throw "claude.exe not found at: $exePath" }
 if (-not (Test-Path $asarPath)) { throw "app.asar not found at: $asarPath" }
+
+# ── Fetch remote patch definitions ───────────────────────────────────────────
+function Get-PatchDefinition {
+    param([string]$Version)
+
+    # Try remote first
+    try {
+        Write-Host "Fetching patch definitions from remote..."
+        $json = Invoke-RestMethod -Uri $RemoteUrl -TimeoutSec 10
+        $verDef = $json.definitions.$Version
+        if ($verDef) {
+            Write-Host "  Found remote definition for version $Version"
+            return @{
+                original = $verDef.windows.original
+                patched  = $verDef.windows.patched
+            }
+        }
+        Write-Host "  No exact match for $Version in remote, will try fallback"
+        return @{ use_fallback = $true; remote_pattern = $json.fallback_pattern }
+    } catch {
+        Write-Host "  Remote fetch failed: $($_.Exception.Message)"
+    }
+
+    # Embedded fallback
+    if ($EmbeddedDefs.ContainsKey($Version)) {
+        Write-Host "  Using embedded definition for $Version"
+        return $EmbeddedDefs[$Version]
+    }
+
+    return @{ use_fallback = $true; remote_pattern = $FallbackPattern }
+}
+
+$patchDef = Get-PatchDefinition -Version $claudeVersion
 
 # ── 1. Check / install asar ──────────────────────────────────────────────────
 Write-Host "[1/8] Checking tools..."
@@ -91,7 +145,6 @@ Write-Host "[4/8] Patching claude.exe — disabling asar integrity fuse..."
 
 $exeBytes = [System.IO.File]::ReadAllBytes($exePath)
 
-# Locate Electron fuse sentinel string
 $sentinelStr   = "dL7pKGdnNz796PbbjQWNKmHXBZaB9tsX"
 $sentinelBytes = [System.Text.Encoding]::ASCII.GetBytes($sentinelStr)
 
@@ -105,16 +158,6 @@ for ($i = 0; $i -le $exeBytes.Length - $sentinelBytes.Length; $i++) {
 }
 if ($sentinelIdx -lt 0) { throw "Electron fuse sentinel not found in claude.exe." }
 
-# Fuse wire layout (after sentinel):
-#   [0] version byte
-#   [1] cookie byte
-#   [2] RunAsNode
-#   [3] EnableCookieEncryption
-#   [4] EnableNodeOptionsEnvironmentVariable
-#   [5] EnableNodeCliInspectArguments
-#   [6] EnableEmbeddedAsarIntegrityValidation  <-- flip ON(0x31) -> OFF(0x30)
-#   [7] OnlyLoadAppFromAsar
-#   ...
 $fuseStart  = $sentinelIdx + $sentinelBytes.Length
 $fuseOffset = $fuseStart + 6
 
@@ -139,18 +182,34 @@ Write-Host "[6/8] Patching .vite/build/index.js ..."
 
 $content = [System.IO.File]::ReadAllText($jsPath, [System.Text.Encoding]::UTF8)
 
-# bLA() checks if a model name contains Anthropic keywords (claude/sonnet/opus/haiku/anthropic)
-# Replacing with a stub that always returns true bypasses the model name restriction
-$original = 'function bLA(e){const A=e.toLowerCase();return bxe.test(A)||ZWt.some(t=>A.includes(t))}'
-$patched  = 'function bLA(e){return true/*patched*/}'
+if ($patchDef.use_fallback) {
+    $pattern = if ($patchDef.remote_pattern) { $patchDef.remote_pattern } else { $FallbackPattern }
+    Write-Host "      Using fallback regex to locate target function..."
+    $regexMatch = [regex]::Match($content, $pattern)
+    if (-not $regexMatch.Success) {
+        throw "Fallback regex did not match any function in index.js. Manual investigation required."
+    }
+    $original = $regexMatch.Value
+    $funcName = [regex]::Match($original, '^function (\w+)').Groups[1].Value
+    $patched  = "function $funcName(e){return true/*patched*/}"
+    Write-Host "      Auto-detected function: $funcName"
+} else {
+    $original = $patchDef.original
+    $patched  = $patchDef.patched
+}
 
 if ($content.IndexOf($original) -lt 0) {
-    throw "Patch target not found in index.js. The app may have been updated — patch needs revision."
+    if ($content.IndexOf("/*patched*/") -ge 0) {
+        Write-Host "      Already patched, skipping."
+    } else {
+        throw "Patch target not found in index.js. The app may have been updated — check for new patch definitions."
+    }
+} else {
+    $count = ([regex]::Matches($content, [regex]::Escape($original))).Count
+    $newContent = $content.Replace($original, $patched)
+    [System.IO.File]::WriteAllText($jsPath, $newContent, [System.Text.Encoding]::UTF8)
+    Write-Host "      Replaced $count occurrence(s): $($original.Substring(0,40))... -> $patched"
 }
-$count = ([regex]::Matches($content, [regex]::Escape($original))).Count
-$newContent = $content.Replace($original, $patched)
-[System.IO.File]::WriteAllText($jsPath, $newContent, [System.Text.Encoding]::UTF8)
-Write-Host "      Replaced $count occurrence(s)."
 
 # ── 7. Repack asar ───────────────────────────────────────────────────────────
 Write-Host "[7/8] Repacking app.asar ..."
