@@ -17,8 +17,8 @@
         "patched": "function ObA(e){return true/*patched*/}"
       },
       "macos": {
-        "original": "function ObA(e){const A=e.toLowerCase();return Yxe.test(A)||t5t.some(t=>A.includes(t))}",
-        "patched_prefix": "function ObA(e){return!0}"
+        "original": "function OLA(e){const A=e.toLowerCase();return Yxe.test(A)||tZt.some(t=>A.includes(t))}",
+        "patched_prefix": "function OLA(e){return!0}"
       }
     }
   },
