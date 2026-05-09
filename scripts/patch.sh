@@ -46,8 +46,8 @@ EMBEDDED = {
         "patched_prefix": b'function LbA(e){return!0}'
     },
     "1.6608.2": {
-        "original": b'function ObA(e){const A=e.toLowerCase();return Yxe.test(A)||t5t.some(t=>A.includes(t))}',
-        "patched_prefix": b'function ObA(e){return!0}'
+        "original": b'function OLA(e){const A=e.toLowerCase();return Yxe.test(A)||tZt.some(t=>A.includes(t))}',
+        "patched_prefix": b'function OLA(e){return!0}'
     }
 }
 FALLBACK_PATTERN = rb'function \w{2,4}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,4}\.test\(A\)\|\|\w{2,4}\.some\(t=>A\.includes\(t\)\)\}'

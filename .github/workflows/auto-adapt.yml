@@ -20,6 +20,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install 7z
+        run: sudo apt-get install -y p7zip-full
+
       - name: Run auto-adapt
         id: adapt
         run: python ci/auto_adapt.py --definitions patch-definitions.json
