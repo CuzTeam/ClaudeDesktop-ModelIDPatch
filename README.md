@@ -3,7 +3,7 @@ A patch allows the Claude client to accept more ModelIDs.
 
 ## Usage
 
-> Require: Installed Claude Desktop
+> Require: Installed Claude Desktop & Enable Devloper Mode
 
 ### MacOS
 ```bash
