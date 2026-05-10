@@ -64,3 +64,7 @@ Copy-Item "$env:USERPROFILE\Desktop\app.asar.bak" "C:\path\to\app\resources\app.
 ```bash
 cp /Applications/Claude.app/Contents/Resources/app.asar.bak /Applications/Claude.app/Contents/Resources/app.asar
 ```
+
+## CI
+
+![ActPic](https://actpic-gh.vercel.app/api/CuzTeam/ClaudeDesktop-ModelIDPatch/all?theme=dark)
