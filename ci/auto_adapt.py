@@ -210,6 +210,24 @@ def extract_index_js_from_asar(asar_data: bytes) -> bytes:
     return asar_data[js_abs:js_abs + js_size]
 
 
+def extract_function_body(js_content: bytes, start: int) -> bytes | None:
+    """Extract a complete function body using brace counting, starting at 'function'."""
+    brace_start = js_content.find(b'{', start)
+    if brace_start < 0 or brace_start - start > 200:
+        return None
+    depth = 0
+    i = brace_start
+    while i < len(js_content) and i < start + 2048:
+        if js_content[i:i+1] == b'{':
+            depth += 1
+        elif js_content[i:i+1] == b'}':
+            depth -= 1
+            if depth == 0:
+                return js_content[start:i+1]
+        i += 1
+    return None
+
+
 def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
     """Find the model validation function in index.js using multi-level matching."""
     prefix = f"  [{platform}] " if platform else "  "
@@ -224,40 +242,97 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
         print(f"{prefix}Level 1 match: function {func_name}, regex={regex_var}, array={array_var}")
         return {"function_name": func_name, "original": full_match}
 
-    # Level 2: anchor-based search
+    # Level 2: anchor-based search with brace-counted body extraction
     print(f"{prefix}Level 1 failed, trying anchor-based search...")
     array_idx = js_content.find(ANCHOR_ARRAY)
     if array_idx < 0:
         print(f"{prefix}ERROR: Anthropic keywords array not found")
         return None
 
-    window_start = max(0, array_idx - 4096)
-    window = js_content[window_start:array_idx + 256]
+    window_start = max(0, array_idx - 8192)
+    window_end = array_idx + 512
 
-    candidates = list(re.finditer(rb'function (\w{2,5})\(e\)\{', window))
+    # Find all function(e){ candidates in the window
+    candidates = list(re.finditer(rb'function (\w{2,5})\(e\)\{', js_content[window_start:window_end]))
     if not candidates:
-        print(f"{prefix}ERROR: No function(e){{ found near anchor")
-        return None
+        print(f"{prefix}Level 2: No function(e){{ found near anchor")
+    else:
+        for candidate in reversed(candidates):
+            func_name = candidate.group(1).decode()
+            func_start = window_start + candidate.start()
+            body = extract_function_body(js_content, func_start)
+            if not body:
+                continue
+            if b'.toLowerCase()' not in body:
+                continue
+            if b'.test(' not in body and b'.includes(' not in body:
+                continue
+            full_match = body.decode()
+            print(f"{prefix}Level 2 match: function {func_name}")
+            return {"function_name": func_name, "original": full_match}
+        print(f"{prefix}Level 2: No validated function found")
 
-    # Search candidates from nearest to anchor backwards, validate each
-    for candidate in reversed(candidates):
-        func_name = candidate.group(1).decode()
-        func_start = window_start + candidate.start()
-        slice_after = js_content[func_start:func_start + 512]
-        body_match = re.match(rb'function \w+\(e\)\{[^}]+\}', slice_after)
-        if not body_match:
-            continue
-        body = body_match.group(0)
-        # Validate: model validation function must use toLowerCase and some/includes or test
-        if b'.toLowerCase()' not in body:
-            continue
-        if b'.test(' not in body and b'.includes(' not in body:
-            continue
-        full_match = body.decode()
-        print(f"{prefix}Level 2 match: function {func_name}")
-        return {"function_name": func_name, "original": full_match}
+    # Level 3: find variable assigned to anchor array, then find function using that variable
+    print(f"{prefix}Trying Level 3: variable reference tracing...")
+    # Look for `varName=["claude","sonnet",...]` pattern
+    pre_anchor = js_content[max(0, array_idx - 64):array_idx]
+    var_match = re.search(rb'(\w{1,5})=\s*$', pre_anchor)
+    if not var_match:
+        # Try comma-separated: ,varName=
+        var_match = re.search(rb'[,;](\w{1,5})=\s*$', pre_anchor)
+    if var_match:
+        array_var_name = var_match.group(1).decode()
+        print(f"{prefix}  Anchor array assigned to variable: {array_var_name}")
+        # Search backwards from anchor for functions that reference this variable
+        search_start = max(0, array_idx - 16384)
+        search_region = js_content[search_start:array_idx]
+        # Find functions that use this variable with .some( or .includes( or .test(
+        usage_pattern = re.compile(
+            rb'function (\w{2,5})\(e\)\{',
+        )
+        func_candidates = list(usage_pattern.finditer(search_region))
+        for candidate in reversed(func_candidates):
+            func_start = search_start + candidate.start()
+            body = extract_function_body(js_content, func_start)
+            if not body:
+                continue
+            # Must reference the array variable
+            if array_var_name.encode() not in body:
+                continue
+            # Must do some kind of string checking
+            if b'.toLowerCase()' not in body and b'.lower' not in body:
+                continue
+            func_name = candidate.group(1).decode()
+            full_match = body.decode()
+            print(f"{prefix}Level 3 match: function {func_name} (references {array_var_name})")
+            return {"function_name": func_name, "original": full_match}
 
-    print(f"{prefix}ERROR: No validated model-check function found near anchor")
+    # Level 4: broadest search - any function(e) near anchor that does string validation
+    print(f"{prefix}Trying Level 4: broad pattern search...")
+    search_start = max(0, array_idx - 16384)
+    search_region = js_content[search_start:array_idx + 1024]
+    for candidate in reversed(list(re.finditer(rb'function (\w{2,5})\(e\)\{', search_region))):
+        func_start = search_start + candidate.start()
+        body = extract_function_body(js_content, func_start)
+        if not body:
+            continue
+        # Must have at least 2 of these validation signals
+        signals = 0
+        if b'.toLowerCase()' in body:
+            signals += 1
+        if b'.test(' in body:
+            signals += 1
+        if b'.some(' in body:
+            signals += 1
+        if b'.includes(' in body:
+            signals += 1
+        if signals >= 2:
+            func_name = candidate.group(1).decode()
+            full_match = body.decode()
+            print(f"{prefix}Level 4 match: function {func_name} (signals={signals})")
+            return {"function_name": func_name, "original": full_match}
+
+    print(f"{prefix}ERROR: All matching levels failed")
     return None
 
 
