@@ -231,7 +231,7 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
         print(f"{prefix}ERROR: Anthropic keywords array not found")
         return None
 
-    window_start = max(0, array_idx - 2048)
+    window_start = max(0, array_idx - 4096)
     window = js_content[window_start:array_idx + 256]
 
     candidates = list(re.finditer(rb'function (\w{2,5})\(e\)\{', window))
@@ -239,18 +239,25 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
         print(f"{prefix}ERROR: No function(e){{ found near anchor")
         return None
 
-    best = candidates[-1]
-    func_name = best.group(1).decode()
-
-    func_start = window_start + best.start()
-    slice_after = js_content[func_start:func_start + 512]
-    body_match = re.match(rb'function \w+\(e\)\{[^}]+\}', slice_after)
-    if body_match:
-        full_match = body_match.group(0).decode()
+    # Search candidates from nearest to anchor backwards, validate each
+    for candidate in reversed(candidates):
+        func_name = candidate.group(1).decode()
+        func_start = window_start + candidate.start()
+        slice_after = js_content[func_start:func_start + 512]
+        body_match = re.match(rb'function \w+\(e\)\{[^}]+\}', slice_after)
+        if not body_match:
+            continue
+        body = body_match.group(0)
+        # Validate: model validation function must use toLowerCase and some/includes or test
+        if b'.toLowerCase()' not in body:
+            continue
+        if b'.test(' not in body and b'.includes(' not in body:
+            continue
+        full_match = body.decode()
         print(f"{prefix}Level 2 match: function {func_name}")
         return {"function_name": func_name, "original": full_match}
 
-    print(f"{prefix}ERROR: Could not extract function body for {func_name}")
+    print(f"{prefix}ERROR: No validated model-check function found near anchor")
     return None
 
 

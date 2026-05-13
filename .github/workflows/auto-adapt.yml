@@ -75,10 +75,23 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # If remote branch already exists, delete it first (stale from a previous failed run)
+          if git ls-remote --exit-code origin "refs/heads/$BRANCH" >/dev/null 2>&1; then
+            git push origin --delete "$BRANCH"
+          fi
+
           git checkout -b "$BRANCH"
           git add patch-definitions.json
           git commit -m "Add patch definition for Claude Desktop ${VERSION}"
           git push -u origin "$BRANCH"
+
+          # If PR already exists for this branch, skip creation
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists for $BRANCH, skipping creation"
+            exit 0
+          fi
 
           gh pr create \
             --title "Add patch definition for Claude Desktop ${VERSION}" \
