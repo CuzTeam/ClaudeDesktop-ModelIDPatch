@@ -22,5 +22,8 @@
       }
     }
   },
-  "fallback_pattern": "function \\w{2,4}\\(e\\)\\{const A=e\\.toLowerCase\\(\\);return \\w{2,4}\\.test\\(A\\)\\|\\|\\w{2,4}\\.some\\(t=>A\\.includes\\(t\\)\\)\\}"
+  "fallback_patterns": [
+    "function \\w{2,5}\\(e\\)\\{const A=e\\.toLowerCase\\(\\);return \\w{2,5}\\.test\\(A\\)\\?!1:\\w{2,5}\\.test\\(A\\)\\|\\|\\w{2,5}\\.some\\(t=>A\\.includes\\(t\\)\\)\\}",
+    "function \\w{2,5}\\(e\\)\\{const A=e\\.toLowerCase\\(\\);return \\w{2,5}\\.test\\(A\\)\\|\\|\\w{2,5}\\.some\\(t=>A\\.includes\\(t\\)\\)\\}"
+  ]
 }

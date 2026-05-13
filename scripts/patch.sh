@@ -50,7 +50,10 @@ EMBEDDED = {
         "patched_prefix": b'function OLA(e){return!0}'
     }
 }
-FALLBACK_PATTERN = rb'function \w{2,4}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,4}\.test\(A\)\|\|\w{2,4}\.some\(t=>A\.includes\(t\)\)\}'
+FALLBACK_PATTERNS = [
+    rb'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\?!1:\w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}',
+    rb'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}',
+]
 
 OLD = None
 NEW = None
@@ -65,6 +68,12 @@ if patch_json_str:
             prefix = ver_def['patched_prefix'].encode()
             NEW = prefix + b' ' * (len(OLD) - len(prefix))
             print("Using remote definition for version %s" % claude_version)
+        # Load remote fallback patterns if available
+        remote_patterns = defs.get('fallback_patterns') or (
+            [defs['fallback_pattern']] if defs.get('fallback_pattern') else None
+        )
+        if remote_patterns:
+            FALLBACK_PATTERNS = [p.encode() if isinstance(p, str) else p for p in remote_patterns]
     except Exception as e:
         print("Remote JSON parse error: %s" % e)
 
@@ -91,7 +100,11 @@ js_bytes  = raw[js_abs : js_abs + js_size]
 # If no definition matched, try fallback regex
 if OLD is None:
     print("No definition for version %s, trying fallback regex..." % claude_version)
-    m = re.search(FALLBACK_PATTERN, js_bytes)
+    m = None
+    for pat in FALLBACK_PATTERNS:
+        m = re.search(pat, js_bytes)
+        if m:
+            break
     if not m:
         print("error: fallback regex did not match -- manual investigation required")
         sys.exit(1)

@@ -34,7 +34,14 @@ RELEASES_URL = "https://downloads.claude.ai/releases/win32/x64/RELEASES"
 NUPKG_BASE_URL = "https://downloads.claude.ai/releases/win32/x64/"
 MACOS_REDIRECT_URL = "https://api.anthropic.com/api/desktop/darwin/universal/dmg/latest/redirect"
 
-FALLBACK_PATTERN = rb'function (\w{2,4})\(e\)\{const (\w)=e\.toLowerCase\(\);return (\w{2,4})\.test\(\2\)\|\|(\w{2,4})\.some\(t=>\2\.includes\(t\)\)\}'
+FALLBACK_PATTERNS = [
+    # Pattern A: new style with negation prefix (1.7196.0+)
+    # function FFA(e){const A=e.toLowerCase();return WXt.test(A)?!1:XJe.test(A)||$Xt.some(t=>A.includes(t))}
+    rb'function (\w{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return (\w{2,5})\.test\(\2\)\?!1:(\w{2,5})\.test\(\2\)\|\|(\w{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
+    # Pattern B: original style (1.6608.x)
+    # function bLA(e){const A=e.toLowerCase();return bxe.test(A)||ZWt.some(t=>A.includes(t))}
+    rb'function (\w{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return (\w{2,5})\.test\(\2\)\|\|(\w{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
+]
 ANCHOR_ARRAY = b'["claude","sonnet","opus","haiku","anthropic"]'
 
 
@@ -232,15 +239,14 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
     """Find the model validation function in index.js using multi-level matching."""
     prefix = f"  [{platform}] " if platform else "  "
 
-    # Level 1: strict signature match
-    m = re.search(FALLBACK_PATTERN, js_content)
-    if m:
-        func_name = m.group(1).decode()
-        full_match = m.group(0).decode()
-        regex_var = m.group(3).decode()
-        array_var = m.group(4).decode()
-        print(f"{prefix}Level 1 match: function {func_name}, regex={regex_var}, array={array_var}")
-        return {"function_name": func_name, "original": full_match}
+    # Level 1: strict signature match (try each known pattern)
+    for pat_idx, pattern in enumerate(FALLBACK_PATTERNS):
+        m = re.search(pattern, js_content)
+        if m:
+            func_name = m.group(1).decode()
+            full_match = m.group(0).decode()
+            print(f"{prefix}Level 1 match (pattern {pat_idx}): function {func_name}")
+            return {"function_name": func_name, "original": full_match}
 
     # Level 2: anchor-based search with brace-counted body extraction
     print(f"{prefix}Level 1 failed, trying anchor-based search...")
@@ -352,9 +358,12 @@ def build_patch_entry(win_target: dict, mac_target: dict | None) -> dict:
             "patched_prefix": f"function {mf}(e){{return!0}}",
         }
     else:
+        print("  WARNING: macOS target not available, using Windows target as fallback")
+        print("  WARNING: macOS patch may not work if function names differ between platforms")
         entry["macos"] = {
             "original": win_target["original"],
             "patched_prefix": f"function {wf}(e){{return!0}}",
+            "_fallback": True,
         }
     return entry
 

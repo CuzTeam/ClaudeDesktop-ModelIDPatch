@@ -30,7 +30,10 @@ $EmbeddedDefs = @{
         patched  = 'function ObA(e){return true/*patched*/}'
     }
 }
-$FallbackPattern = 'function \w{2,4}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,4}\.test\(A\)\|\|\w{2,4}\.some\(t=>A\.includes\(t\)\)\}'
+$FallbackPatterns = @(
+    'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\?!1:\w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}'
+    'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}'
+)
 
 # ── Locate installation ──────────────────────────────────────────────────────
 if ($ClaudeDesktopDir) {
@@ -87,7 +90,8 @@ function Get-PatchDefinition {
             }
         }
         Write-Host "  No exact match for $Version in remote, will try fallback"
-        return @{ use_fallback = $true; remote_pattern = $json.fallback_pattern }
+        $patterns = if ($json.fallback_patterns) { $json.fallback_patterns } elseif ($json.fallback_pattern) { @($json.fallback_pattern) } else { $null }
+        return @{ use_fallback = $true; remote_patterns = $patterns }
     } catch {
         Write-Host "  Remote fetch failed: $($_.Exception.Message)"
     }
@@ -98,7 +102,7 @@ function Get-PatchDefinition {
         return $EmbeddedDefs[$Version]
     }
 
-    return @{ use_fallback = $true; remote_pattern = $FallbackPattern }
+    return @{ use_fallback = $true; remote_patterns = $null }
 }
 
 $patchDef = Get-PatchDefinition -Version $claudeVersion
@@ -183,10 +187,14 @@ Write-Host "[6/8] Patching .vite/build/index.js ..."
 $content = [System.IO.File]::ReadAllText($jsPath, [System.Text.Encoding]::UTF8)
 
 if ($patchDef.use_fallback) {
-    $pattern = if ($patchDef.remote_pattern) { $patchDef.remote_pattern } else { $FallbackPattern }
+    $patterns = if ($patchDef.remote_patterns) { $patchDef.remote_patterns } else { $FallbackPatterns }
     Write-Host "      Using fallback regex to locate target function..."
-    $regexMatch = [regex]::Match($content, $pattern)
-    if (-not $regexMatch.Success) {
+    $regexMatch = $null
+    foreach ($pattern in $patterns) {
+        $regexMatch = [regex]::Match($content, $pattern)
+        if ($regexMatch.Success) { break }
+    }
+    if (-not $regexMatch -or -not $regexMatch.Success) {
         throw "Fallback regex did not match any function in index.js. Manual investigation required."
     }
     $original = $regexMatch.Value
