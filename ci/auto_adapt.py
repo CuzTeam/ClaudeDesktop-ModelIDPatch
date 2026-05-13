@@ -37,10 +37,11 @@ MACOS_REDIRECT_URL = "https://api.anthropic.com/api/desktop/darwin/universal/dmg
 FALLBACK_PATTERNS = [
     # Pattern A: new style with negation prefix (1.7196.0+)
     # function FFA(e){const A=e.toLowerCase();return WXt.test(A)?!1:XJe.test(A)||$Xt.some(t=>A.includes(t))}
-    rb'function (\w{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return (\w{2,5})\.test\(\2\)\?!1:(\w{2,5})\.test\(\2\)\|\|(\w{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
+    # Note: [$\w] because JS identifiers can start with $
+    rb'function ([$\w]{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return ([$\w]{2,5})\.test\(\2\)\?!1:([$\w]{2,5})\.test\(\2\)\|\|([$\w]{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
     # Pattern B: original style (1.6608.x)
     # function bLA(e){const A=e.toLowerCase();return bxe.test(A)||ZWt.some(t=>A.includes(t))}
-    rb'function (\w{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return (\w{2,5})\.test\(\2\)\|\|(\w{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
+    rb'function ([$\w]{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return ([$\w]{2,5})\.test\(\2\)\|\|([$\w]{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
 ]
 ANCHOR_ARRAY = b'["claude","sonnet","opus","haiku","anthropic"]'
 
