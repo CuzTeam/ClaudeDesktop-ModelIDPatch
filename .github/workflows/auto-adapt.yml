@@ -87,7 +87,31 @@ jobs:
           fi
 
           git checkout -b "$BRANCH"
-          git add patch-definitions.json
+
+          # Update README supported versions list
+          VERSIONS=$(python3 -c "
+          import json
+          with open('patch-definitions.json') as f:
+              defs = json.load(f)
+          for v in defs['definitions']:
+              print(f'- {v}')
+          ")
+          # Replace the supported versions section in README
+          python3 -c "
+          import re
+          with open('README.md', 'r') as f:
+              content = f.read()
+          new_list = '''$VERSIONS'''
+          content = re.sub(
+              r'(## Supported Versions\n\n)(- .+\n)+',
+              r'\1' + new_list.strip() + '\n',
+              content
+          )
+          with open('README.md', 'w') as f:
+              f.write(content)
+          "
+
+          git add patch-definitions.json README.md
           git commit -m "Add patch definition for Claude Desktop ${VERSION}"
           git push -u origin "$BRANCH"
 
