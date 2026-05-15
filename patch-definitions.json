@@ -30,6 +30,16 @@
         "original": "function FFA(e){const A=e.toLowerCase();return WXt.test(A)?!1:XJe.test(A)||$Xt.some(t=>A.includes(t))}",
         "patched_prefix": "function FFA(e){return!0}"
       }
+    },
+    "1.7196.1": {
+      "windows": {
+        "original": "function cxA(e){const A=e.toLowerCase();return xoi.test(A)?!1:UVe.test(A)||Ooi.some(t=>A.includes(t))}",
+        "patched": "function cxA(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function cxA(e){const A=e.toLowerCase();return xoi.test(A)?!1:UVe.test(A)||Ooi.some(t=>A.includes(t))}",
+        "patched_prefix": "function cxA(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
