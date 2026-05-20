@@ -75,3 +75,6 @@ cp /Applications/Claude.app/Contents/Resources/app.asar.bak /Applications/Claude
 ## CI
 
 ![ActPic](https://actpic-gh.vercel.app/api/CuzTeam/ClaudeDesktop-ModelIDPatch/all?theme=dark)
+
+## Thanks
+- [Linux.do](https://linux.do): A good technical forum
