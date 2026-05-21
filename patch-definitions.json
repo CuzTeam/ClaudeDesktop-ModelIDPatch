@@ -70,6 +70,16 @@
         "original": "function O3(e){const A=e.toLowerCase();return xgi.test(A)?!1:gYA.test(A)||Ogi.some(t=>A.includes(t))}",
         "patched_prefix": "function O3(e){return!0}"
       }
+    },
+    "1.8555.0": {
+      "windows": {
+        "original": "function tj(e){const A=e.toLowerCase();return OIi.test(A)?!1:ePA.test(A)||FIi.some(t=>A.includes(t))}",
+        "patched": "function tj(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function tj(e){const A=e.toLowerCase();return OIi.test(A)?!1:ePA.test(A)||FIi.some(t=>A.includes(t))}",
+        "patched_prefix": "function tj(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
