@@ -90,6 +90,16 @@
         "original": "function oj(e){const A=e.toLowerCase();return AEi.test(A)?!1:cPA.test(A)||XIi.some(t=>A.includes(t))}",
         "patched_prefix": "function oj(e){return!0}"
       }
+    },
+    "1.8555.1": {
+      "windows": {
+        "original": "function oj(e){const A=e.toLowerCase();return XIi.test(A)?!1:cPA.test(A)||ZIi.some(t=>A.includes(t))}",
+        "patched": "function oj(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function oj(e){const A=e.toLowerCase();return XIi.test(A)?!1:cPA.test(A)||ZIi.some(t=>A.includes(t))}",
+        "patched_prefix": "function oj(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
