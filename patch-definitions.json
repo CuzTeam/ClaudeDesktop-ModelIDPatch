@@ -80,6 +80,16 @@
         "original": "function tj(e){const A=e.toLowerCase();return OIi.test(A)?!1:ePA.test(A)||FIi.some(t=>A.includes(t))}",
         "patched_prefix": "function tj(e){return!0}"
       }
+    },
+    "1.8555.2": {
+      "windows": {
+        "original": "function oj(e){const A=e.toLowerCase();return AEi.test(A)?!1:cPA.test(A)||XIi.some(t=>A.includes(t))}",
+        "patched": "function oj(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function oj(e){const A=e.toLowerCase();return AEi.test(A)?!1:cPA.test(A)||XIi.some(t=>A.includes(t))}",
+        "patched_prefix": "function oj(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
