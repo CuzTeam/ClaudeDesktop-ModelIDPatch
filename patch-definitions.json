@@ -140,6 +140,16 @@
         "original": "function g3(e){const A=e.toLowerCase();return RBi.test(A)?!1:d2A.test(A)||_Bi.some(t=>A.includes(t))}",
         "patched_prefix": "function g3(e){return!0}"
       }
+    },
+    "1.9659.4": {
+      "windows": {
+        "original": "function C3(e){const A=e.toLowerCase();return FBi.test(A)?!1:w2A.test(A)||UBi.some(t=>A.includes(t))}",
+        "patched": "function C3(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function C3(e){const A=e.toLowerCase();return FBi.test(A)?!1:w2A.test(A)||UBi.some(t=>A.includes(t))}",
+        "patched_prefix": "function C3(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
