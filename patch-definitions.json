@@ -160,6 +160,16 @@
         "original": "function eW(e){const A=e.toLowerCase();return yhi.test(A)?!1:IKA.test(A)||mhi.some(t=>A.includes(t))}",
         "patched_prefix": "function eW(e){return!0}"
       }
+    },
+    "1.10628.2": {
+      "windows": {
+        "original": "function eW(e){const A=e.toLowerCase();return yhi.test(A)?!1:I1A.test(A)||mhi.some(t=>A.includes(t))}",
+        "patched": "function eW(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function eW(e){const A=e.toLowerCase();return yhi.test(A)?!1:IKA.test(A)||mhi.some(t=>A.includes(t))}",
+        "patched_prefix": "function eW(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
