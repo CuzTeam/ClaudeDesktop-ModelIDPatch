@@ -24,6 +24,7 @@ A patch allows the Claude client to accept more ModelIDs.
 - 1.10628.0
 - 1.10628.2
 - 1.11187.0
+- 1.11187.4
 
 The patch scripts auto-detect your installed version and fetch the latest patch definitions from this repository. When a new Claude Desktop version is released, only `patch-definitions.json` needs updating.
 
@@ -63,7 +64,7 @@ The scripts automatically fetch `patch-definitions.json` from this repo at runti
 1. Extract `app.asar` from the new version
 2. Search `.vite/build/index.js` for the pattern:
    ```
-   function XXX(e){const A=e.toLowerCase();return YYY.test(A)||ZZZ.some(t=>A.includes(t))}
+   function XXX(arg){const lower=arg.toLowerCase();return YYY.test(lower)||ZZZ.some(t=>lower.includes(t))}
    ```
 3. Add the new entry to `patch-definitions.json`
 4. Submit a PR

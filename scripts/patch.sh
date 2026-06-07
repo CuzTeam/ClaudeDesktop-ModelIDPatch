@@ -51,8 +51,8 @@ EMBEDDED = {
     }
 }
 FALLBACK_PATTERNS = [
-    rb'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\?!1:\w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}',
-    rb'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}',
+    rb'function ([$A-Za-z_][\w$]{0,7})\(([$A-Za-z_][\w$]{0,7})\)\{const ([$A-Za-z_][\w$]{0,7})=\2\.toLowerCase\(\);return ([$A-Za-z_][\w$]{0,7})\.test\(\3\)\?!1:([$A-Za-z_][\w$]{0,7})\.test\(\3\)\|\|([$A-Za-z_][\w$]{0,7})\.some\(t=>\3\.includes\(t\)\)\}',
+    rb'function ([$A-Za-z_][\w$]{0,7})\(([$A-Za-z_][\w$]{0,7})\)\{const ([$A-Za-z_][\w$]{0,7})=\2\.toLowerCase\(\);return ([$A-Za-z_][\w$]{0,7})\.test\(\3\)\|\|([$A-Za-z_][\w$]{0,7})\.some\(t=>\3\.includes\(t\)\)\}',
 ]
 
 OLD = None
@@ -109,7 +109,7 @@ if OLD is None:
         print("error: fallback regex did not match -- manual investigation required")
         sys.exit(1)
     OLD = m.group(0)
-    func_name = re.match(rb'function (\w+)', OLD).group(1)
+    func_name = re.match(rb'function ([$A-Za-z_][\w$]*)', OLD).group(1)
     prefix = b'function ' + func_name + b'(e){return!0}'
     NEW = prefix + b' ' * (len(OLD) - len(prefix))
     print("Auto-detected function: %s" % func_name.decode())

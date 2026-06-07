@@ -180,10 +180,20 @@
         "original": "function eW(e){const A=e.toLowerCase();return yhi.test(A)?!1:IKA.test(A)||mhi.some(t=>A.includes(t))}",
         "patched_prefix": "function eW(e){return!0}"
       }
+    },
+    "1.11187.4": {
+      "windows": {
+        "original": "function wW(A){const e=A.toLowerCase();return Fyi.test(e)?!1:HqA.test(e)||Uyi.some(t=>e.includes(t))}",
+        "patched": "function wW(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function w6(A){const e=A.toLowerCase();return Fyi.test(e)?!1:HqA.test(e)||Uyi.some(t=>e.includes(t))}",
+        "patched_prefix": "function w6(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
-    "function \\w{2,5}\\(e\\)\\{const A=e\\.toLowerCase\\(\\);return \\w{2,5}\\.test\\(A\\)\\?!1:\\w{2,5}\\.test\\(A\\)\\|\\|\\w{2,5}\\.some\\(t=>A\\.includes\\(t\\)\\)\\}",
-    "function \\w{2,5}\\(e\\)\\{const A=e\\.toLowerCase\\(\\);return \\w{2,5}\\.test\\(A\\)\\|\\|\\w{2,5}\\.some\\(t=>A\\.includes\\(t\\)\\)\\}"
+    "function ([$A-Za-z_][\\w$]{0,7})\\(([$A-Za-z_][\\w$]{0,7})\\)\\{const ([$A-Za-z_][\\w$]{0,7})=\\2\\.toLowerCase\\(\\);return ([$A-Za-z_][\\w$]{0,7})\\.test\\(\\3\\)\\?!1:([$A-Za-z_][\\w$]{0,7})\\.test\\(\\3\\)\\|\\|([$A-Za-z_][\\w$]{0,7})\\.some\\(t=>\\3\\.includes\\(t\\)\\)\\}",
+    "function ([$A-Za-z_][\\w$]{0,7})\\(([$A-Za-z_][\\w$]{0,7})\\)\\{const ([$A-Za-z_][\\w$]{0,7})=\\2\\.toLowerCase\\(\\);return ([$A-Za-z_][\\w$]{0,7})\\.test\\(\\3\\)\\|\\|([$A-Za-z_][\\w$]{0,7})\\.some\\(t=>\\3\\.includes\\(t\\)\\)\\}"
   ]
 }

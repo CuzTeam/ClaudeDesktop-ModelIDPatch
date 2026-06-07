@@ -31,8 +31,8 @@ $EmbeddedDefs = @{
     }
 }
 $FallbackPatterns = @(
-    'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\?!1:\w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}'
-    'function \w{2,5}\(e\)\{const A=e\.toLowerCase\(\);return \w{2,5}\.test\(A\)\|\|\w{2,5}\.some\(t=>A\.includes\(t\)\)\}'
+    'function ([$A-Za-z_][\w$]{0,7})\(([$A-Za-z_][\w$]{0,7})\)\{const ([$A-Za-z_][\w$]{0,7})=\2\.toLowerCase\(\);return ([$A-Za-z_][\w$]{0,7})\.test\(\3\)\?!1:([$A-Za-z_][\w$]{0,7})\.test\(\3\)\|\|([$A-Za-z_][\w$]{0,7})\.some\(t=>\3\.includes\(t\)\)\}'
+    'function ([$A-Za-z_][\w$]{0,7})\(([$A-Za-z_][\w$]{0,7})\)\{const ([$A-Za-z_][\w$]{0,7})=\2\.toLowerCase\(\);return ([$A-Za-z_][\w$]{0,7})\.test\(\3\)\|\|([$A-Za-z_][\w$]{0,7})\.some\(t=>\3\.includes\(t\)\)\}'
 )
 
 # ── Locate installation ──────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ if ($patchDef.use_fallback) {
         throw "Fallback regex did not match any function in index.js. Manual investigation required."
     }
     $original = $regexMatch.Value
-    $funcName = [regex]::Match($original, '^function (\w+)').Groups[1].Value
+    $funcName = [regex]::Match($original, '^function ([$A-Za-z_][\w$]*)').Groups[1].Value
     $patched  = "function $funcName(e){return true/*patched*/}"
     Write-Host "      Auto-detected function: $funcName"
 } else {

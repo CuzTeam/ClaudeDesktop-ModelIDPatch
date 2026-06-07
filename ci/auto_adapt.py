@@ -34,14 +34,17 @@ RELEASES_URL = "https://downloads.claude.ai/releases/win32/x64/RELEASES"
 NUPKG_BASE_URL = "https://downloads.claude.ai/releases/win32/x64/"
 MACOS_REDIRECT_URL = "https://api.anthropic.com/api/desktop/darwin/universal/dmg/latest/redirect"
 
+JS_IDENTIFIER = rb'[$A-Za-z_][\w$]{0,7}'
+FUNCTION_CANDIDATE_RE = re.compile(rb'function (' + JS_IDENTIFIER + rb')\((' + JS_IDENTIFIER + rb')\)\{')
+
 FALLBACK_PATTERNS = [
     # Pattern A: new style with negation prefix (1.7196.0+)
     # function FFA(e){const A=e.toLowerCase();return WXt.test(A)?!1:XJe.test(A)||$Xt.some(t=>A.includes(t))}
     # Note: [$\w] because JS identifiers can start with $
-    rb'function ([$\w]{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return ([$\w]{2,5})\.test\(\2\)\?!1:([$\w]{2,5})\.test\(\2\)\|\|([$\w]{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
+    rb'function (' + JS_IDENTIFIER + rb')\((' + JS_IDENTIFIER + rb')\)\{const (' + JS_IDENTIFIER + rb')=\2\.toLowerCase\(\);return (' + JS_IDENTIFIER + rb')\.test\(\3\)\?!1:(' + JS_IDENTIFIER + rb')\.test\(\3\)\|\|(' + JS_IDENTIFIER + rb')\.some\(t=>\3\.includes\(t\)\)\}',
     # Pattern B: original style (1.6608.x)
     # function bLA(e){const A=e.toLowerCase();return bxe.test(A)||ZWt.some(t=>A.includes(t))}
-    rb'function ([$\w]{2,5})\(e\)\{const (\w)=e\.toLowerCase\(\);return ([$\w]{2,5})\.test\(\2\)\|\|([$\w]{2,5})\.some\(t=>\2\.includes\(t\)\)\}',
+    rb'function (' + JS_IDENTIFIER + rb')\((' + JS_IDENTIFIER + rb')\)\{const (' + JS_IDENTIFIER + rb')=\2\.toLowerCase\(\);return (' + JS_IDENTIFIER + rb')\.test\(\3\)\|\|(' + JS_IDENTIFIER + rb')\.some\(t=>\3\.includes\(t\)\)\}',
 ]
 ANCHOR_ARRAY = b'["claude","sonnet","opus","haiku","anthropic"]'
 
@@ -259,10 +262,11 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
     window_start = max(0, array_idx - 8192)
     window_end = array_idx + 512
 
-    # Find all function(e){ candidates in the window
-    candidates = list(re.finditer(rb'function (\w{2,5})\(e\)\{', js_content[window_start:window_end]))
+    # Find all single-argument function candidates in the window. The minifier
+    # can swap parameter/local names between releases, e.g. e/A -> A/e.
+    candidates = list(FUNCTION_CANDIDATE_RE.finditer(js_content[window_start:window_end]))
     if not candidates:
-        print(f"{prefix}Level 2: No function(e){{ found near anchor")
+        print(f"{prefix}Level 2: No single-argument function found near anchor")
     else:
         for candidate in reversed(candidates):
             func_name = candidate.group(1).decode()
@@ -283,10 +287,10 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
     print(f"{prefix}Trying Level 3: variable reference tracing...")
     # Look for `varName=["claude","sonnet",...]` pattern
     pre_anchor = js_content[max(0, array_idx - 64):array_idx]
-    var_match = re.search(rb'(\w{1,5})=\s*$', pre_anchor)
+    var_match = re.search(rb'(' + JS_IDENTIFIER + rb')=\s*$', pre_anchor)
     if not var_match:
         # Try comma-separated: ,varName=
-        var_match = re.search(rb'[,;](\w{1,5})=\s*$', pre_anchor)
+        var_match = re.search(rb'[,;](' + JS_IDENTIFIER + rb')=\s*$', pre_anchor)
     if var_match:
         array_var_name = var_match.group(1).decode()
         print(f"{prefix}  Anchor array assigned to variable: {array_var_name}")
@@ -294,10 +298,7 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
         search_start = max(0, array_idx - 16384)
         search_region = js_content[search_start:array_idx]
         # Find functions that use this variable with .some( or .includes( or .test(
-        usage_pattern = re.compile(
-            rb'function (\w{2,5})\(e\)\{',
-        )
-        func_candidates = list(usage_pattern.finditer(search_region))
+        func_candidates = list(FUNCTION_CANDIDATE_RE.finditer(search_region))
         for candidate in reversed(func_candidates):
             func_start = search_start + candidate.start()
             body = extract_function_body(js_content, func_start)
@@ -318,7 +319,7 @@ def find_patch_target(js_content: bytes, platform: str = "") -> dict | None:
     print(f"{prefix}Trying Level 4: broad pattern search...")
     search_start = max(0, array_idx - 16384)
     search_region = js_content[search_start:array_idx + 1024]
-    for candidate in reversed(list(re.finditer(rb'function (\w{2,5})\(e\)\{', search_region))):
+    for candidate in reversed(list(FUNCTION_CANDIDATE_RE.finditer(search_region))):
         func_start = search_start + candidate.start()
         body = extract_function_body(js_content, func_start)
         if not body:
