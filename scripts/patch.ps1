@@ -152,14 +152,10 @@ $exeBytes = [System.IO.File]::ReadAllBytes($exePath)
 $sentinelStr   = "dL7pKGdnNz796PbbjQWNKmHXBZaB9tsX"
 $sentinelBytes = [System.Text.Encoding]::ASCII.GetBytes($sentinelStr)
 
-$sentinelIdx = -1
-for ($i = 0; $i -le $exeBytes.Length - $sentinelBytes.Length; $i++) {
-    $match = $true
-    for ($j = 0; $j -lt $sentinelBytes.Length; $j++) {
-        if ($exeBytes[$i + $j] -ne $sentinelBytes[$j]) { $match = $false; break }
-    }
-    if ($match) { $sentinelIdx = $i; break }
-}
+# Fast search: encode bytes as Latin1 string and use .NET's optimized IndexOf
+$exeString   = [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($exeBytes)
+$sentinelIdx = $exeString.IndexOf($sentinelStr, [System.StringComparison]::Ordinal)
+
 if ($sentinelIdx -lt 0) { throw "Electron fuse sentinel not found in claude.exe." }
 
 $fuseStart  = $sentinelIdx + $sentinelBytes.Length
