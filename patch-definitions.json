@@ -200,6 +200,16 @@
         "original": "function b6(A){const e=A.toLowerCase();return dSi.test(e)?!1:f4A.test(e)||BSi.some(t=>e.includes(t))}",
         "patched_prefix": "function b6(e){return!0}"
       }
+    },
+    "1.12603.0": {
+      "windows": {
+        "original": "function SAA(A){const e=A.toLowerCase();return dZi.test(e)?!1:kAe.test(e)||CZi.some(t=>e.includes(t))}",
+        "patched": "function SAA(e){return true/*patched*/}"
+      },
+      "macos": {
+        "original": "function b6(A){const e=A.toLowerCase();return dSi.test(e)?!1:f4A.test(e)||BSi.some(t=>e.includes(t))}",
+        "patched_prefix": "function b6(e){return!0}"
+      }
     }
   },
   "fallback_patterns": [
