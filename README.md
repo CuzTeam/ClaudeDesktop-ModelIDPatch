@@ -29,6 +29,7 @@ A patch allows the Claude client to accept more ModelIDs.
 - 1.12603.0
 - 1.12603.1
 - 1.13576.0
+- 1.13576.4
 
 The patch scripts auto-detect your installed version and fetch the latest patch definitions from this repository. When a new Claude Desktop version is released, only `patch-definitions.json` needs updating.
 
